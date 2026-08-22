@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { ChangeEvent, ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ArrowDownRight, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Coffee, ExternalLink, Instagram, MapPin, Menu, MessageCircle, Phone, Play, Plus, Star, Sun, Wifi, Wind, X } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -55,6 +55,31 @@ function scrollToId(id: string, closeMenu?: () => void) {
   document.querySelector(id)?.scrollIntoView({ behavior: 'smooth' });
 }
 
+function TiltSurface({ children, className = '', intensity = 1 }: { children: ReactNode; className?: string; intensity?: number }) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const resetTilt = () => {
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    surface.style.setProperty('--tilt-x', '0deg');
+    surface.style.setProperty('--tilt-y', '0deg');
+  };
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const bounds = surface.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    surface.style.setProperty('--tilt-x', `${(-y * 4 * intensity).toFixed(2)}deg`);
+    surface.style.setProperty('--tilt-y', `${(x * 4 * intensity).toFixed(2)}deg`);
+  };
+  return (
+    <div ref={surfaceRef} className={`tilt-surface ${className}`} onPointerMove={handlePointerMove} onPointerLeave={resetTilt}>
+      {children}
+    </div>
+  );
+}
+
 function Header({ onBook }: { onBook: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
@@ -95,11 +120,29 @@ function Header({ onBook }: { onBook: () => void }) {
 }
 
 function Hero({ onBook }: { onBook: () => void }) {
+  const sceneRef = useRef<HTMLElement>(null);
+  const handleSceneMove = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType !== 'mouse' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const bounds = scene.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    scene.style.setProperty('--scene-shift-x', `${(x * 16).toFixed(2)}px`);
+    scene.style.setProperty('--scene-shift-y', `${(y * 11).toFixed(2)}px`);
+  };
+  const resetScene = () => {
+    sceneRef.current?.style.setProperty('--scene-shift-x', '0px');
+    sceneRef.current?.style.setProperty('--scene-shift-y', '0px');
+  };
   return (
-    <section id="top" className="hero-content relative isolate min-h-[720px] overflow-hidden bg-[#203036] text-[#f7f1e7]">
+    <section ref={sceneRef} id="top" onPointerMove={handleSceneMove} onPointerLeave={resetScene} className="hero-content relative isolate min-h-[720px] overflow-hidden bg-[#203036] text-[#f7f1e7]">
       <img className="hero-image absolute inset-0 -z-20 h-full w-full object-cover object-center" src={photos[0].src} alt={photos[0].alt} />
       <div className="hero-vignette absolute inset-0 -z-10" />
       <div className="grid-lines absolute inset-0 -z-10 opacity-30" />
+      <div className="hero-depth-layer hero-depth-back" aria-hidden="true" />
+      <div className="hero-depth-layer hero-depth-mid" aria-hidden="true" />
+      <div className="hero-depth-rim" aria-hidden="true" />
       <Header onBook={onBook} />
       <div className="container-wide flex min-h-[720px] items-end pb-16 pt-32 md:items-center md:pb-20">
         <div className="max-w-[760px]">
@@ -114,6 +157,11 @@ function Hero({ onBook }: { onBook: () => void }) {
           <span className="h-px w-16 bg-white/40" />
           <span className="eyebrow text-white/60">01 / 06 &nbsp; Scroll to explore</span>
         </div>
+        <div className="hero-depth-panel reveal delay-3 absolute right-6 top-[38%] hidden w-36 border-l border-[#d99b58]/70 pl-4 lg:block" aria-hidden="true">
+          <span className="mono text-[9px] tracking-[.14em] text-[#d99b58]">ELEV. 1,900 M</span>
+          <span className="mt-3 block text-[11px] leading-5 text-white/60">Cool air<br />wide horizons</span>
+          <span className="mt-5 block h-px w-8 bg-[#d99b58]" />
+        </div>
       </div>
     </section>
   );
@@ -123,11 +171,14 @@ function IntroSection() {
   return (
     <section className="bg-[#f7f1e7] py-24 md:py-36">
       <div className="container-wide grid items-center gap-14 md:grid-cols-[.85fr_1.15fr] md:gap-24">
-        <div className="relative min-h-[480px]">
-          <div className="image-frame absolute left-0 top-9 h-[375px] w-[80%] md:h-[445px]">
-            <img src={photos[1].src} alt={photos[1].alt} loading="lazy" />
-          </div>
-          <div className="absolute bottom-0 right-0 flex h-40 w-40 flex-col justify-between bg-[#d99b58] p-5 text-[#203036] md:h-48 md:w-48">
+        <div className="intro-composition relative min-h-[480px]">
+          <div className="intro-shadow-plane absolute left-[8%] top-16 h-[380px] w-[76%] md:h-[450px]" aria-hidden="true" />
+          <TiltSurface className="intro-image-depth absolute left-0 top-9 h-[375px] w-[80%] md:h-[445px]" intensity={0.85}>
+            <div className="image-frame h-full">
+              <img src={photos[1].src} alt={photos[1].alt} loading="lazy" />
+            </div>
+          </TiltSurface>
+          <div className="floating-surface absolute bottom-0 right-0 flex h-40 w-40 flex-col justify-between bg-[#d99b58] p-5 text-[#203036] md:h-48 md:w-48">
             <Sun size={22} strokeWidth={1.25} />
             <p className="text-[11px] uppercase leading-5 tracking-[.12em]">1° 01&apos; N<br />35° 00&apos; E</p>
             <span className="eyebrow">Kitale / Kenya</span>
@@ -165,22 +216,24 @@ function RoomsSection() {
         </div>
         <div className="mt-14 grid gap-5 md:grid-cols-3">
           {rooms.map((room, index) => (
-            <article key={room.name} className={`room-card bg-[#f7f1e7] ${index === 1 ? 'md:translate-y-10' : ''}`} data-testid={`card-room-${index}`}>
-              <button onClick={() => scrollToId('#booking')} className="block w-full text-left" data-testid={`button-room-${index}`}>
-                <div className="image-frame relative h-[340px]">
-                  <img src={room.image} alt={`${room.name} at Kittony Heights`} loading="lazy" />
-                  <span className="absolute left-4 top-4 bg-[#f7f1e7] px-3 py-2 text-[9px] uppercase tracking-[.16em] text-[#203036]">0{index + 1}</span>
-                </div>
-                <div className="p-6">
-                  <h3 className="text-2xl tracking-[-.03em] serif">{room.name}</h3>
-                  <p className="mt-2 text-xs text-[#667277]">{room.detail}</p>
-                  <div className="mt-7 flex items-center justify-between border-t border-[#203036]/15 pt-4">
-                    <span className="mono text-[10px] uppercase tracking-[.08em] text-[#a34f35]">{room.price}</span>
-                    <ArrowRight className="room-arrow text-[#496d61]" size={18} />
+            <TiltSurface key={room.name} className={`room-card ${index === 1 ? 'room-card-offset' : ''}`} intensity={0.9}>
+              <article className="h-full bg-[#f7f1e7]" data-testid={`card-room-${index}`}>
+                <button onClick={() => scrollToId('#booking')} className="block h-full w-full text-left" data-testid={`button-room-${index}`}>
+                  <div className="image-frame relative h-[340px]">
+                    <img src={room.image} alt={`${room.name} at Kittony Heights`} loading="lazy" />
+                    <span className="absolute left-4 top-4 bg-[#f7f1e7] px-3 py-2 text-[9px] uppercase tracking-[.16em] text-[#203036]">0{index + 1}</span>
                   </div>
-                </div>
-              </button>
-            </article>
+                  <div className="p-6">
+                    <h3 className="text-2xl tracking-[-.03em] serif">{room.name}</h3>
+                    <p className="mt-2 text-xs text-[#667277]">{room.detail}</p>
+                    <div className="mt-7 flex items-center justify-between border-t border-[#203036]/15 pt-4">
+                      <span className="mono text-[10px] uppercase tracking-[.08em] text-[#a34f35]">{room.price}</span>
+                      <ArrowRight className="room-arrow text-[#496d61]" size={18} />
+                    </div>
+                  </div>
+                </button>
+              </article>
+            </TiltSurface>
           ))}
         </div>
         <div className="mt-20 flex items-center justify-center gap-4">
@@ -205,13 +258,17 @@ function GatherSection({ openGallery }: { openGallery: (index: number) => void }
             <button onClick={() => openGallery(2)} className="mt-9 flex items-center gap-3 text-[11px] uppercase tracking-[.15em] text-[#d99b58]" data-testid="button-view-rooftop">View rooftop <ArrowRight size={16} /></button>
           </div>
           <div className="grid grid-cols-[1.35fr_.75fr] gap-3">
-            <button onClick={() => openGallery(2)} className="image-frame group relative h-[420px] text-left md:h-[540px]" data-testid="button-gallery-rooftop">
-              <img src={photos[2].src} alt={photos[2].alt} loading="lazy" />
-              <span className="absolute bottom-5 left-5 flex items-center gap-2 text-[10px] uppercase tracking-[.15em] text-white"><Play size={13} fill="currentColor" /> Open gallery</span>
-            </button>
+            <TiltSurface className="gather-feature-depth" intensity={0.75}>
+              <button onClick={() => openGallery(2)} className="image-frame group relative h-[420px] w-full text-left md:h-[540px]" data-testid="button-gallery-rooftop">
+                <img src={photos[2].src} alt={photos[2].alt} loading="lazy" />
+                <span className="absolute bottom-5 left-5 flex items-center gap-2 text-[10px] uppercase tracking-[.15em] text-white"><Play size={13} fill="currentColor" /> Open gallery</span>
+              </button>
+            </TiltSurface>
             <div className="flex flex-col gap-3">
-              <button onClick={() => openGallery(4)} className="image-frame h-[205px] text-left md:h-[263px]" data-testid="button-gallery-terrace"><img src={photos[4].src} alt={photos[4].alt} loading="lazy" /></button>
-              <div className="flex flex-1 flex-col justify-between border border-white/20 p-5">
+              <TiltSurface className="gather-detail-depth" intensity={0.7}>
+                <button onClick={() => openGallery(4)} className="image-frame h-[205px] w-full text-left md:h-[263px]" data-testid="button-gallery-terrace"><img src={photos[4].src} alt={photos[4].alt} loading="lazy" /></button>
+              </TiltSurface>
+              <div className="gather-note flex flex-1 flex-col justify-between border border-white/20 p-5">
                 <Coffee size={21} strokeWidth={1.2} className="text-[#d99b58]" />
                 <p className="text-[13px] leading-6 text-white/74">Breakfast from 06:30.<br />Rooftop drinks until late.</p>
                 <span className="eyebrow text-white/45">The rooftop / Level 5</span>
@@ -254,7 +311,7 @@ function KnowSection() {
         </div>
         <div>
           {amenities.map(([number, title, description, icon]) => (
-            <div key={number} className="amenity-line grid grid-cols-[45px_40px_1fr] items-center gap-3 py-6 md:grid-cols-[55px_46px_1fr]">
+            <div key={number} className="amenity-line amenity-surface grid grid-cols-[45px_40px_1fr] items-center gap-3 py-6 md:grid-cols-[55px_46px_1fr]">
               <span className="mono text-[10px] text-[#d9ae72]">{number}</span>
               <span className="text-[#d9ae72]">{icon}</span>
               <div>
@@ -322,7 +379,8 @@ function LocationSection() {
           </div>
           <a href="https://maps.google.com/?q=Kittony+Heights+Kitale" target="_blank" rel="noreferrer" className="mt-9 inline-flex items-center gap-3 text-[10px] uppercase tracking-[.15em] text-[#496d61]" data-testid="link-open-map">Open in maps <ExternalLink size={14} /></a>
         </div>
-        <div className="map-card relative min-h-[450px] overflow-hidden p-6 text-[#f7f1e7] md:min-h-[550px]">
+        <TiltSurface className="map-depth" intensity={0.65}>
+          <div className="map-card relative min-h-[450px] overflow-hidden p-6 text-[#f7f1e7] md:min-h-[550px]">
           <svg className="absolute inset-0 h-full w-full opacity-50" viewBox="0 0 500 500" fill="none" aria-hidden="true">
             <path d="M-30 110 C80 150 90 65 200 100 S350 195 530 130 M-40 360 C60 300 160 440 250 340 S410 260 540 310 M130 -20 C170 70 145 150 200 220 S270 350 215 520 M370 -20 C315 80 390 165 320 230 S350 390 300 520" stroke="#e7ddcc" strokeOpacity=".23" strokeWidth="1.5" className="map-path" />
             <path d="M34 235 L470 235 M260 30 L260 470" stroke="#d99b58" strokeOpacity=".28" strokeWidth="1" />
@@ -336,7 +394,8 @@ function LocationSection() {
             </div>
             <div className="flex justify-between border-t border-white/20 pt-4 text-[10px] text-white/55"><span>Kitale town centre · 4 min</span><span>ELDORET · 1 hr 40</span></div>
           </div>
-        </div>
+          </div>
+        </TiltSurface>
       </div>
     </section>
   );
@@ -358,7 +417,7 @@ function BookingSection() {
             <a href="https://wa.me/254790282828" target="_blank" rel="noreferrer" className="mt-4 flex items-center gap-3 text-sm text-[#f1c88d]" data-testid="link-whatsapp-booking"><MessageCircle size={17} /> WhatsApp the front desk <ArrowRight size={15} /></a>
           </div>
         </div>
-        <div className="bg-[#f7f1e7] p-6 text-[#203036] md:p-10">
+        <div className="booking-panel bg-[#f7f1e7] p-6 text-[#203036] md:p-10">
           {submitted ? (
             <div className="flex min-h-[390px] flex-col items-start justify-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#496d61] text-[#f7f1e7]"><Check size={22} /></div>
