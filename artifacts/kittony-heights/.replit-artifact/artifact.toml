@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Kittony Heights Hotel"
+description = "A premium hospitality website for Kittony Heights in Kitale, Kenya, designed to showcase rooms, dining, amenities, guest reviews, and direct booking."
+version = "1.0.0"
+id = "artifacts/kittony-heights"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19476
+
+[services.development]
+run = "pnpm --filter @workspace/kittony-heights run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/kittony-heights", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/kittony-heights/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19476"
+BASE_PATH = "/"
